@@ -1,0 +1,84 @@
+#!/bin/bash
+
+SBC=$0
+SBC_PATH="$HOME/.sbc"
+SBC_KEY="$HOME/.ssh/sbc_rsa"
+AUTH_KEYS="$HOME/.ssh/authorized_keys"
+SBC_PORT=$(($RANDOM + 1024))
+SSH_LOCAL_PORT=22
+
+sbc_install() {
+    if [ -z "$1" ]; then
+        echo "Usage: $0 $plugin <user@server> [scp options]"
+        exit 1
+    fi
+
+    if [ ! -e "$SBC_KEY" ]; then
+        echo -n "[sbc] Generating SSH RSA key without password ($SBC_KEY)..."
+        ssh-keygen -t rsa -f $SBC_KEY -N '' &> /dev/null
+        echo ' [OK]'
+    else
+        echo "[sbc] Using existing key $SBC_KEY"
+    fi
+    echo -n "[sbc] Copying private key and sbc to $@..."
+    cat $0 | ssh $@ 'cat - > $HOME/sbc'
+    echo | ssh -T $@ <<EOF
+/bin/sh -c "mkdir -p \$HOME/bin
+echo 'PATH=\$PATH:\$HOME/bin' >> \$HOME/.profile
+mv \$HOME/sbc \$HOME/bin/
+chmod +x \$HOME/bin/sbc"
+EOF
+    echo ' [OK]'
+    echo -n "[sbc] Updating local authorized_keys (if needed)..."
+    if [ "$(grep "$(cat $SBC_KEY.pub)" $AUTH_KEYS | wc -l)" = 0 ]; then
+        cat $SBC_KEY.pub >> $AUTH_KEYS
+    fi
+    echo ' [OK]'
+}
+
+update_environment() {
+    # Environment magic
+    source <(xargs --null --max-args=1 echo < /proc/$PID_ENV/environ | tr '\0' '\n' | sed 's/^/export /; s/=/="/; s/$/"/')
+}
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <plugin_name> [--help] [options]"
+    exit 1
+fi
+
+plugin=$1
+shift
+
+case "$plugin" in
+    install)
+        sbc_install $@
+        ;;
+    ssh)
+        # Running on client to start SSH connection
+        echo -n '[sbc] Copying some information to server and connecting...'
+        ssh -t -R 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ "/bin/sh -c 'cat > \$HOME/.sbc <<EOF
+PID_ENV=$$
+SBC_PORT=$SBC_PORT
+SBC_USER=$USER
+EOF'; echo ' [OK]'; \$SHELL"
+    ;;
+    exec)
+        # Running on client
+        plugin=$1
+        shift
+        update_environment
+        # Run the plugin
+        $SBC_PATH/plugins/$plugin $@
+    ;;
+    *)
+        source $HOME/.sbc
+        HOST_PORT=${SSH_CONNECTION#* * }
+        PORT=${HOST_PORT//* /}
+        HOST=${HOST_PORT/% */}
+
+        ssh -q -t -p $SBC_PORT -o StrictHostKeyChecking=no $SBC_USER@localhost \
+            -i $HOME/.ssh/sbc_rsa "REMOTE_PWD=$PWD REMOTE_USER=$USER \
+            REMOTE_HOSTNAME=$HOSTNAME REMOTE_HOST=$HOST REMOTE_PORT=$PORT \
+            PID_ENV=$PID_ENV /bin/bash -lc \"sbc exec $plugin $@\""
+    ;;
+esac

@@ -1,0 +1,10 @@
+#!/bin/sh
+
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    echo 'Usage: sbc notify <message to notify>'
+    echo 'Send a notification in SSH client machine (generally appear near the clock)'
+    exit
+fi
+
+
+notify-send "$*"

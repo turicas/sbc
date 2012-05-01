@@ -1,0 +1,11 @@
+#!/bin/bash
+
+#!/bin/bash
+
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    echo 'Usage: sbc remote-exec <command>'
+    echo 'Execute <command> in SSH client machine in an interactive session'
+    exit
+fi
+
+$@

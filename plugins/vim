@@ -1,0 +1,16 @@
+#!/bin/bash
+
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    echo 'Usage: sbc vim [file to edit]'
+    echo 'Run vim (on the command-line) on SSH client machine editing a file in SSH server machine'
+    exit
+fi
+
+filename=$@
+if [ ${filename:0:1} = "/" ]; then
+    filename=$filename
+else
+    filename=$REMOTE_PWD/$filename
+fi
+
+vim scp://$REMOTE_USER@$REMOTE_HOST:$REMOTE_PORT/$filename
