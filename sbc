@@ -37,7 +37,8 @@ EOF
 }
 
 update_environment() {
-    # Environment magic
+    # Environment magic: copy environment from the process which executed sbc
+    # in client, so the plugin will be executed in the same environment
     source <(xargs --null --max-args=1 echo < /proc/$PID_ENV/environ | tr '\0' '\n' | sed 's/^/export /; s/=/="/; s/$/"/')
 }
 
@@ -71,6 +72,7 @@ EOF'; echo ' [OK]'; \$SHELL"
         $SBC_PATH/plugins/$plugin $@
     ;;
     *)
+        # Running a plugin on remote
         source $HOME/.sbc
         HOST_PORT=${SSH_CONNECTION#* * }
         PORT=${HOST_PORT//* /}
