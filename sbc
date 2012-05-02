@@ -56,11 +56,14 @@ case "$plugin" in
     ssh)
         # Running on client to start SSH connection
         echo -n '[sbc] Copying some information to server and connecting...'
-        ssh -t -R 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ "/bin/sh -c 'cat > \$HOME/.sbc <<EOF
+        ssh -t -R 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ "cat > \$HOME/.sbc <<EOF
 PID_ENV=$$
 SBC_PORT=$SBC_PORT
 SBC_USER=$USER
-EOF'; echo ' [OK]'; \$SHELL"
+EOF
+echo ' [OK]'
+\$SHELL
+rm \$HOME/.sbc"
     ;;
     exec)
         # Running on client
