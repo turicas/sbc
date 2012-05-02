@@ -22,12 +22,11 @@ sbc_install() {
     fi
     echo -n "[sbc] Copying private key and sbc to $@..."
     cat $0 | ssh $@ 'cat - > $HOME/sbc'
-    echo | ssh -T $@ <<EOF
-/bin/sh -c "mkdir -p \$HOME/bin
+    ssh -T $@ "
+mkdir -p \$HOME/bin
 echo 'PATH=\$PATH:\$HOME/bin' >> \$HOME/.profile
 mv \$HOME/sbc \$HOME/bin/
 chmod +x \$HOME/bin/sbc"
-EOF
     echo ' [OK]'
     echo -n "[sbc] Updating local authorized_keys (if needed)..."
     if [ "$(grep "$(cat $SBC_KEY.pub)" $AUTH_KEYS | wc -l)" = 0 ]; then
