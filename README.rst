@@ -105,3 +105,11 @@ The core idea of this software was stolen from
 `Álvaro Justen <http://blog.justen.eng.br/>`_ (with much help from
 `Flávio Amieiro <http://flavioamieiro.com/>`_ and
 `Kretcheu <http://www.kretcheu.com.br/>`_).
+
+
+Copying
+-------
+
+``sbc`` is licensed under the terms of the `GNU General Public License version
+3 <https://www.gnu.org/licenses/gpl-3.0.txt>`_ as published by the Free
+Software Foundation.
