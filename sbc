@@ -21,8 +21,10 @@ sbc_install() {
         echo "[sbc] Using existing key $SBC_KEY"
     fi
     echo -n "[sbc] Copying private key and sbc to $@..."
+    cat $SBC_KEY | ssh $@ 'cat - > $HOME/.ssh/sbc_rsa'
     cat $0 | ssh $@ 'cat - > $HOME/sbc'
     ssh -T $@ "
+chmod 600 \$HOME/.ssh/sbc_rsa
 mkdir -p \$HOME/bin
 echo 'PATH=\$PATH:\$HOME/bin' >> \$HOME/.profile
 mv \$HOME/sbc \$HOME/bin/
@@ -55,15 +57,40 @@ case "$plugin" in
         ;;
     ssh)
         # Running on client to start SSH connection
-        echo -n '[sbc] Copying some information to server and connecting...'
-        ssh -t -R 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ "cat > \$HOME/.sbc <<EOF
+        echo -n '[sbc] Copying some information to server...'
+        ssh $@ "
+mkdir -p \$HOME/.sbc
+cat > \$HOME/.sbc/config <<EOF
 PID_ENV=$$
 SBC_PORT=$SBC_PORT
 SBC_USER=$USER
 EOF
+cat > \$HOME/.sbc/startup <<EOF
+#!/bin/bash
+
+source \\\$HOME/.sbc/config
+SBC_CMD=\"ssh -qNf -p \\\$SBC_PORT -o StrictHostKeyChecking=no
+-o ControlMaster=auto -o ControlPath=\\\$HOME/.sbc/master_%h_%p_%r
+-i \\\$HOME/.ssh/sbc_rsa \\\$SBC_USER@localhost\"
+\\\$SBC_CMD
+SBC_PID=\\\$(ps -Ao pid,cmd | grep \"\\\$SBC_CMD\" | awk '(\\\$2 != "grep") {print \\\$1}')
 echo ' [OK]'
-\$SHELL
-rm \$HOME/.sbc"
+
+echo \\\$pid
+\\\$SHELL
+
+echo -n '[sbc] Cleaning metadata on server...'
+rm \\\$HOME/.sbc/config
+echo ' [OK]'
+kill -9 \\\$SBC_PID
+EOF
+chmod +x \$HOME/.sbc/startup
+"
+
+echo ' [OK]'
+echo -n '[sbc] Creating back-channel and connecting...'
+ssh -tR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ '$HOME/.sbc/startup'
+
     ;;
     exec)
         # Running on client
@@ -75,13 +102,15 @@ rm \$HOME/.sbc"
     ;;
     *)
         # Running a plugin on remote
-        source $HOME/.sbc
+        source $HOME/.sbc/config
         HOST_PORT=${SSH_CONNECTION#* * }
         PORT=${HOST_PORT//* /}
         HOST=${HOST_PORT/% */}
 
         ssh -q -t -p $SBC_PORT -o StrictHostKeyChecking=no $SBC_USER@localhost \
-            -i $HOME/.ssh/sbc_rsa "REMOTE_PWD=$PWD REMOTE_USER=$USER \
+            -i $HOME/.ssh/sbc_rsa \
+            -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
+            "REMOTE_PWD=$PWD REMOTE_USER=$USER \
             REMOTE_HOSTNAME=$HOSTNAME REMOTE_HOST=$HOST REMOTE_PORT=$PORT \
             PID_ENV=$PID_ENV /bin/bash -lc \"sbc exec $plugin $@\""
     ;;
