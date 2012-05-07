@@ -25,6 +25,7 @@ files_to_copy=${@:1:$((${#@} - 1))}
 destination=${@:${#@}}
 files_with_host=$(
     for file in $files_to_copy; do
+        [ "${file:0:1}" != "/" ] && file=$REMOTE_PWD/$file
         echo $REMOTE_USER@$REMOTE_HOST:$file
     done)
 
