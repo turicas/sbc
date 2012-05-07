@@ -21,6 +21,27 @@ AUTH_KEYS="$HOME/.ssh/authorized_keys"
 SBC_PORT=$(($RANDOM + 1024))
 SSH_LOCAL_PORT=22
 
+get_username_and_hostname() {
+    args=`getopt :1246AaCfgKkMNnqsTtVvXxYyb:c:D:e:F:I:i:L:l:m:O:o:p:R:S:W:w: $@`
+    username=""
+    port=22
+    last=""
+    for arg in $args; do
+        if [ "$last" = "-l" ]; then
+            username=$arg
+        elif [ "$last" = "-p" ]; then
+            port=$arg
+        fi
+        last=$arg
+    done
+    user_host=$last
+    hostname=${user_host#*@}
+    if [ -z "$username" ]; then
+        username=${user_host%@*}
+    fi
+    echo "$username@$hostname:$port"
+}
+
 sbc_install() {
     if [ -z "$1" ]; then
         echo "Usage: $0 $plugin <user@server> [scp options]"
@@ -64,7 +85,7 @@ $SBC_CMD
 SBC_PID=$(ps -Ao pid,cmd | grep "$(echo $SBC_CMD)" | awk '($2 != "grep") {print $1}')
 echo ' [OK]'
 
-$SHELL
+$SHELL -l
 
 echo -n '[sbc] Cleaning metadata on server...'
 rm $HOME/.sbc/config
@@ -110,11 +131,18 @@ case "$plugin" in
         ;;
     ssh)
         # Running on client to start SSH connection
+        data=$(get_username_and_hostname $@)
+        username=${data%@*}
+        hostname=${data#*@}; hostname=${hostname%:*}
+        port=${data#*:}
         echo -n '[sbc] Copying sbc metadata to server...'
         cat << EOF | ssh $@ "cat - > \$HOME/.sbc/config"
 PID_ENV=$$
 SBC_PORT=$SBC_PORT
 SBC_USER=$USER
+REMOTE_USER=$username
+REMOTE_HOST=$hostname
+REMOTE_PORT=$port
 EOF
 echo ' [OK]'
 
@@ -133,15 +161,10 @@ ssh -tR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ '$HOME/.sbc/sbc-startup
     *)
         # Running a plugin on remote
         source $HOME/.sbc/config
-        HOST_PORT=${SSH_CONNECTION#* * }
-        PORT=${HOST_PORT//* /}
-        HOST=${HOST_PORT/% */}
-
-        ssh -q -t -p $SBC_PORT -o StrictHostKeyChecking=no $SBC_USER@localhost \
-            -i $HOME/.sbc/sbc_rsa \
+        env_vars="REMOTE_PWD=$PWD $(cat $HOME/.sbc/config | tr '\n' ' ')"
+        ssh -qtp $SBC_PORT -o StrictHostKeyChecking=no -i $HOME/.ssh/sbc_rsa \
             -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
-            "REMOTE_PWD=$PWD REMOTE_USER=$USER \
-            REMOTE_HOSTNAME=$HOSTNAME REMOTE_HOST=$HOST REMOTE_PORT=$PORT \
-            PID_ENV=$PID_ENV /bin/bash -lc \"sbc exec $plugin $@\""
+            $SBC_USER@localhost \
+            "$env_vars /bin/bash -lc \"sbc exec $plugin '$@'\""
     ;;
 esac
