@@ -20,11 +20,12 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     exit
 fi
 
-filename=$1
-if [ ${filename:0:1} = "/" ]; then
-    filename=$filename
-else
-    filename=$REMOTE_PWD/$filename
-fi
+filenames=$@
+files_to_edit=$(
+    for filename in $filenames; do
+        [ "${filename:0:1}" != "/" ] && filename=$REMOTE_PWD/$filename
+        echo scp://$REMOTE_USER@$REMOTE_HOST:$REMOTE_PORT/$filename
+    done
+)
 
-gvim scp://$REMOTE_USER@$REMOTE_HOST:$REMOTE_PORT/$filename
+gvim $files_to_edit
