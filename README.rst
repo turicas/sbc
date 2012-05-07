@@ -28,25 +28,41 @@ your machine, let's install in the remote one::
 
     user@local-machine:~$ sbc install other-user@remote-machine
     [sbc] Generating SSH RSA key without password (/home/user/.ssh/sbc_rsa)... [OK]
-    [sbc] Copying private key and sbc to other-user@remote-machine... [OK]
+    [sbc] Copying private key and sbc executables to remote server... [OK]
+    [sbc] Executing sbc-install... [OK]
     [sbc] Updating local authorized_keys (if needed)... [OK]
-
 
 After installing it in remote, let's copy a file (``/tmp/some-file.txt``) from
 the remote machine to the local machine, executing a command
 **in the remote machine** - this command is just calling ``sbc`` with the
-``cp`` plugin::
+``cp`` plugin.
 
-    user@local-machine:~$ ls /tmp/some-file.txt # There's no file here...
+First, let's check if there is no file called ``/tmp/some-file.txt`` on local
+machine::
+
+    user@local-machine:~$ ls /tmp/some-file.txt
     ls: cannot access /tmp/some-file.txt: No such file or directory
-    user@local-machine:~$ sbc ssh other-user@remote-machine # SSHing to remote with sbc
-    [sbc] Copying some information to server and connecting... [OK]
+
+Ok, now we'll connect to remote server using ``sbc ssh`` and list files in
+remote home directory::
+
+    user@local-machine:~$ sbc ssh other-user@remote-machine
+    [sbc] Copying sbc metadata to server... [OK]
+    [sbc] Creating back-channel and connecting... [OK]
     other-user@remote-machine:~$ ls
     some-file.txt
-    other-user@remote-machine:~$ sbc cp some-file.txt /tmp/ # Copying to local
-    other-user@remote-machine:~$ exit # Going back to local
-    Connection closed.
-    user@local-machine:~$ ls /tmp/some-file.txt # Let's see if file is here...
+
+Now, copy the file to local machine's ``/tmp`` and disconnect::
+
+    other-user@remote-machine:~$ sbc cp some-file.txt /tmp/
+    some-file.txt                                 100%  545     0.5KB/s   00:01
+    other-user@remote-machine:~$ exit
+    [sbc] Cleaning metadata on server... [OK]
+    Connection to remote-machine closed.
+
+...and check if the file was copied to local machine::
+
+    user@local-machine:~$ ls /tmp/some-file.txt
     /tmp/some-file.txt
 
 When we execute ``sbc ssh`` it creates a back-channel so the remote machine can
@@ -72,7 +88,7 @@ It'll run ``gvim`` **in your local machine** editing the file
 Now let's see another great plugin: ``notify`` - it shows in your **local
 machine** (generally near the clock) a **notification sent by the remote
 machine**. It is handy in cases when you need to run time-consuming commands on
-remote machine and don't want to "watch" every minute if the command ended.
+remote machine and don't want to "watch" every minute if the command finished.
 A command is worth a thousand of words::
 
     other-user@remote-machine:~$ tar -zcf /tmp/myhome.tar.gz ~/; sbc notify "hey, your targz was created!"
@@ -82,18 +98,22 @@ Installation
 ------------
 
 Copy the executable script ``sbc`` to some directory in your ``$PATH`` and the
-entire directory ``plugins`` to ``$HOME/.sbc/``. The following lines installs
+entire directory ``plugins`` to ``$HOME/.sbc/``. The following commands do
 it for you (please **read** the commands before executing)::
 
     mkdir -p $HOME/bin $HOME/.sbc
     wget https://github.com/turicas/sbc/tarball/master -O /tmp/sbc.tar.gz
     cd /tmp
     tar xfz sbc.tar.gz
-    mv /tmp/sbc/sbc $HOME/bin/
+    mv /tmp/turicas-sbc-*/sbc $HOME/bin/
+    mv /tmp/turicas-sbc-*/plugins $HOME/.sbc/
+    rm -rf /tmp/sbc.tar.gz /tmp/turicas-sbc-*
     chmod +x $HOME/bin/sbc
-    echo 'PATH=$PATH:$HOME/bin/' >> $HOME/.profile
-    mv /tmp/sbc/plugins $HOME/.sbc/
-    rm -rf /tmp/sbc.tar.gz /tmp/sbc
+    line_to_add='PATH=$PATH:$HOME/bin'
+    if [ -z "$(grep $line_to_add $HOME/.profile)" ]; then
+        echo $line_to_add >> $HOME/.profile
+        source $HOME/.profile
+    fi
 
 
 Author
