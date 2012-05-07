@@ -20,16 +20,55 @@ sbc_install() {
     else
         echo "[sbc] Using existing key $SBC_KEY"
     fi
-    echo -n "[sbc] Copying private key and sbc to $@..."
-    cat $SBC_KEY | ssh $@ 'cat - > $HOME/.ssh/sbc_rsa'
+
+    cat > /tmp/sbc-install << 'EOF'
+#!/bin/bash
+
+mkdir -p $HOME/.sbc $HOME/bin
+mv $HOME/sbc_rsa $HOME/sbc $HOME/sbc-startup $HOME/.sbc/
+rm -rf $HOME/bin/sbc
+ln -s $HOME/.sbc/sbc $HOME/bin/
+chmod 700 $HOME/.sbc
+chmod 600 $HOME/.sbc/sbc_rsa
+chmod +x $HOME/.sbc/sbc
+chmod +x $HOME/.sbc/sbc-startup
+
+line_to_add='PATH=$PATH:$HOME/bin'
+[ -z "$(grep $line_to_add $HOME/.profile)" ] && echo $line_to_add >> $HOME/.profile
+
+rm $0
+EOF
+    cat > /tmp/sbc-startup << 'EOF'
+#!/bin/bash
+
+source $HOME/.sbc/config
+
+SBC_CMD="ssh -qNf -p $SBC_PORT -o StrictHostKeyChecking=no \
+             -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
+             -i $HOME/.ssh/sbc_rsa $SBC_USER@localhost"
+$SBC_CMD
+SBC_PID=$(ps -Ao pid,cmd | grep "$(echo $SBC_CMD)" | awk '($2 != "grep") {print $1}')
+echo ' [OK]'
+
+$SHELL
+
+echo -n '[sbc] Cleaning metadata on server...'
+rm $HOME/.sbc/config
+echo ' [OK]'
+kill -9 $SBC_PID
+EOF
+
+    echo -n "[sbc] Copying private key and sbc executables to remote server..."
+    cat $SBC_KEY | ssh $@ 'cat - > $HOME/sbc_rsa'
     cat $0 | ssh $@ 'cat - > $HOME/sbc'
-    ssh -T $@ "
-chmod 600 \$HOME/.ssh/sbc_rsa
-mkdir -p \$HOME/bin
-echo 'PATH=\$PATH:\$HOME/bin' >> \$HOME/.profile
-mv \$HOME/sbc \$HOME/bin/
-chmod +x \$HOME/bin/sbc"
+    cat /tmp/sbc-install | ssh $@ 'cat - > $HOME/sbc-install'
+    cat /tmp/sbc-startup | ssh $@ 'cat - > $HOME/sbc-startup'
+    rm /tmp/sbc-install /tmp/sbc-startup
     echo ' [OK]'
+    echo -n "[sbc] Executing sbc-install..."
+    ssh $@ '/bin/bash $HOME/sbc-install'
+    echo ' [OK]'
+
     echo -n "[sbc] Updating local authorized_keys (if needed)..."
     if [ "$(grep "$(cat $SBC_KEY.pub)" $AUTH_KEYS | wc -l)" = 0 ]; then
         cat $SBC_KEY.pub >> $AUTH_KEYS
@@ -57,39 +96,16 @@ case "$plugin" in
         ;;
     ssh)
         # Running on client to start SSH connection
-        echo -n '[sbc] Copying some information to server...'
-        ssh $@ "
-mkdir -p \$HOME/.sbc
-cat > \$HOME/.sbc/config <<EOF
+        echo -n '[sbc] Copying sbc metadata to server...'
+        cat << EOF | ssh $@ "cat - > \$HOME/.sbc/config"
 PID_ENV=$$
 SBC_PORT=$SBC_PORT
 SBC_USER=$USER
 EOF
-cat > \$HOME/.sbc/startup <<EOF
-#!/bin/bash
-
-source \\\$HOME/.sbc/config
-SBC_CMD=\"ssh -qNf -p \\\$SBC_PORT -o StrictHostKeyChecking=no
--o ControlMaster=auto -o ControlPath=\\\$HOME/.sbc/master_%h_%p_%r
--i \\\$HOME/.ssh/sbc_rsa \\\$SBC_USER@localhost\"
-\\\$SBC_CMD
-SBC_PID=\\\$(ps -Ao pid,cmd | grep \"\\\$SBC_CMD\" | awk '(\\\$2 != "grep") {print \\\$1}')
 echo ' [OK]'
 
-echo \\\$pid
-\\\$SHELL
-
-echo -n '[sbc] Cleaning metadata on server...'
-rm \\\$HOME/.sbc/config
-echo ' [OK]'
-kill -9 \\\$SBC_PID
-EOF
-chmod +x \$HOME/.sbc/startup
-"
-
-echo ' [OK]'
 echo -n '[sbc] Creating back-channel and connecting...'
-ssh -tR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ '$HOME/.sbc/startup'
+ssh -tR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ '$HOME/.sbc/sbc-startup'
 
     ;;
     exec)
@@ -108,7 +124,7 @@ ssh -tR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ '$HOME/.sbc/startup'
         HOST=${HOST_PORT/% */}
 
         ssh -q -t -p $SBC_PORT -o StrictHostKeyChecking=no $SBC_USER@localhost \
-            -i $HOME/.ssh/sbc_rsa \
+            -i $HOME/.sbc/sbc_rsa \
             -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
             "REMOTE_PWD=$PWD REMOTE_USER=$USER \
             REMOTE_HOSTNAME=$HOSTNAME REMOTE_HOST=$HOST REMOTE_PORT=$PORT \
