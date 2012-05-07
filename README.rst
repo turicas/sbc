@@ -17,8 +17,8 @@ time-consuming commands and other things. ``sbc`` helps you in these tasks so
 you don't need to open other terminal windows/SSH sessions to do it or you can
 be notified when some tasks are done, for example.
 
-Are you lazy? **Watch the `sbc screencast <http://youtu.be/Rv55V_gfGEw>`_ and
-learn how it works**.
+Are you lazy? Watch the `sbc screencast <http://youtu.be/Rv55V_gfGEw>`_ and
+learn how it works.
 
 
 Usage
