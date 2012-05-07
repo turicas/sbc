@@ -17,14 +17,17 @@ time-consuming commands and other things. ``sbc`` helps you in these tasks so
 you don't need to open other terminal windows/SSH sessions to do it or you can
 be notified when some tasks are done, for example.
 
+Are you lazy? **Watch the `sbc screencast <http://youtu.be/Rv55V_gfGEw>`_ and
+learn how it works**.
+
 
 Usage
 -----
 
-First, you need to `install sbc <Installation>`_ in your machine and then
-install it in the remote machine - you don't need root access in either
-machines, but need to run SSH daemon in both machines. After installing in
-your machine, let's install in the remote one::
+First, you need to `install sbc <https://github.com/turicas/sbc#installation>`_
+in your machine and then install it in the remote machine - you don't need root
+access in either machines, but need to run SSH daemon in both machines. After
+installing in your machine, let's install in the remote one::
 
     user@local-machine:~$ sbc install other-user@remote-machine
     [sbc] Generating SSH RSA key without password (/home/user/.ssh/sbc_rsa)... [OK]
@@ -131,5 +134,5 @@ Copying
 -------
 
 ``sbc`` is licensed under the terms of the `GNU General Public License version
-3 <https://www.gnu.org/licenses/gpl-3.0.txt>`_ as published by the Free
-Software Foundation.
+3 <https://www.gnu.org/licenses/gpl-3.0.txt>`_ as published by the
+`Free Software Foundation <http://www.fsf.org/>`_.
