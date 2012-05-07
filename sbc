@@ -16,7 +16,7 @@
 
 SBC=$0
 SBC_PATH="$HOME/.sbc"
-SBC_KEY="$HOME/.ssh/sbc_rsa"
+SBC_KEY="$HOME/.sbc/sbc_rsa"
 AUTH_KEYS="$HOME/.ssh/authorized_keys"
 SBC_PORT=$(($RANDOM + 1024))
 SSH_LOCAL_PORT=22
@@ -80,7 +80,7 @@ source $HOME/.sbc/config
 
 SBC_CMD="ssh -qNf -p $SBC_PORT -o StrictHostKeyChecking=no \
              -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
-             -i $HOME/.ssh/sbc_rsa $SBC_USER@localhost"
+             -i $HOME/.sbc/sbc_rsa $SBC_USER@localhost"
 $SBC_CMD
 SBC_PID=$(ps -Ao pid,cmd | grep "$(echo $SBC_CMD)" | awk '($2 != "grep") {print $1}')
 echo ' [OK]'
@@ -162,7 +162,7 @@ ssh -tR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ '$HOME/.sbc/sbc-startup
         # Running a plugin on remote
         source $HOME/.sbc/config
         env_vars="REMOTE_PWD=$PWD $(cat $HOME/.sbc/config | tr '\n' ' ')"
-        ssh -qtp $SBC_PORT -o StrictHostKeyChecking=no -i $HOME/.ssh/sbc_rsa \
+        ssh -qtp $SBC_PORT -o StrictHostKeyChecking=no -i $HOME/.sbc/sbc_rsa \
             -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
             $SBC_USER@localhost \
             "$env_vars /bin/bash -lc \"sbc exec $plugin '$@'\""
