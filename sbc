@@ -44,7 +44,7 @@ get_username_and_hostname() {
 
 sbc_install() {
     if [ -z "$1" ]; then
-        echo "Usage: $0 $plugin <user@server> [scp options]"
+        echo "Usage: $0 $plugin <user@remote-server> [scp options]"
         exit 1
     fi
 
@@ -87,8 +87,8 @@ echo ' [OK]'
 
 $SHELL -l
 
-echo -n '[sbc] Cleaning metadata on server...'
-rm $HOME/.sbc/config
+echo -n '[sbc] Cleaning metadata on remote server...'
+rm $HOME/.sbc/config $HOME/.sbc/master_localhost_${SBC_PORT}_${SBC_USER}
 echo ' [OK]'
 kill -9 $SBC_PID
 EOF
@@ -135,7 +135,7 @@ case "$plugin" in
         username=${data%@*}
         hostname=${data#*@}; hostname=${hostname%:*}
         port=${data#*:}
-        echo -n '[sbc] Copying sbc metadata to server...'
+        echo -n '[sbc] Copying sbc metadata to remote server...'
         cat << EOF | ssh $@ "cat - > \$HOME/.sbc/config"
 PID_ENV=$$
 SBC_PORT=$SBC_PORT
