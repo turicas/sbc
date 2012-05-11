@@ -111,12 +111,6 @@ EOF
     echo ' [OK]'
 }
 
-update_environment() {
-    # Environment magic: copy environment from the process which executed sbc
-    # in client, so the plugin will be executed in the same environment
-    source <(xargs --null --max-args=1 echo < /proc/$PID_ENV/environ | tr '\0' '\n' | sed 's/^/export /; s/=/="/; s/$/"/')
-}
-
 if [ -z "$1" ]; then
     echo "Usage: $0 <plugin_name> [--help] [options]"
     exit 1
@@ -135,6 +129,8 @@ case "$plugin" in
         username=${data%@*}
         hostname=${data#*@}; hostname=${hostname%:*}
         port=${data#*:}
+        env_file=$SBC_PATH/.env-$$
+        env | sed 's/^/export /; s/=/="/; s/$/"/' > $env_file
         echo -n '[sbc] Copying sbc metadata to server...'
         cat << EOF | ssh $@ "cat - > \$HOME/.sbc/config"
 PID_ENV=$$
@@ -144,17 +140,19 @@ REMOTE_USER=$username
 REMOTE_HOST=$hostname
 REMOTE_PORT=$port
 EOF
-echo ' [OK]'
+        echo ' [OK]'
 
-echo -n '[sbc] Creating back-channel and connecting...'
-ssh -tR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ '$HOME/.sbc/sbc-startup'
+        echo -n '[sbc] Creating back-channel and connecting...'
+        ssh -tR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ '$HOME/.sbc/sbc-startup'
+        rm $env_file
 
     ;;
     exec)
         # Running on client
         plugin=$1
         shift
-        update_environment
+        # Update environment to the process which called 'sbc ssh'
+        source $SBC_PATH/.env-$PID_ENV
         # Run the plugin
         $SBC_PATH/plugins/$plugin $@
     ;;
