@@ -129,11 +129,10 @@ case "$plugin" in
         username=${data%@*}
         hostname=${data#*@}; hostname=${hostname%:*}
         port=${data#*:}
-        env_file=$SBC_PATH/.env-$$
+        env_file=$SBC_PATH/.env-$hostname-$port-$username
         env | sed 's/^/export /; s/=/="/; s/$/"/' > $env_file
         echo -n '[sbc] Copying sbc metadata to server...'
         cat << EOF | ssh $@ "cat - > \$HOME/.sbc/config"
-PID_ENV=$$
 SBC_PORT=$SBC_PORT
 SBC_USER=$USER
 REMOTE_USER=$username
@@ -152,7 +151,7 @@ EOF
         plugin=$1
         shift
         # Update environment to the process which called 'sbc ssh'
-        source $SBC_PATH/.env-$PID_ENV
+        source $SBC_PATH/.env-$REMOTE_HOST-$REMOTE_PORT-$REMOTE_USER
         # Run the plugin
         $SBC_PATH/plugins/$plugin $@
     ;;
