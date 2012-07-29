@@ -155,6 +155,10 @@ EOF
         shift
         # Update environment to the process which called 'sbc ssh'
         source $SBC_PATH/.env-$REMOTE_HOST-$REMOTE_PORT-$REMOTE_USER
+        if [ ! -x "$SBC_PATH/plugins/$plugin" ]; then
+            echo 'ERROR: plugin "'$plugin'" does not exist or is not executable.'
+            exit 1
+        fi
         # Run the plugin
         $SBC_PATH/plugins/$plugin $@
     ;;
