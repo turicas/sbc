@@ -22,7 +22,7 @@ SBC_PORT=$(($RANDOM + 1024))
 SSH_LOCAL_PORT=22
 
 get_username_and_hostname() {
-    args=`getopt :1246AaCfgKkMNnqsTtVvXxYyb:c:D:e:F:I:i:L:l:m:O:o:p:R:S:W:w: $@`
+    args=`getopt :1246AaCfgKkMNnqsTtVvXxYyb:c:D:e:F:I:i:L:l:m:O:o:p:R:S:W:w: "$@"`
     username=""
     port=22
     last=""
