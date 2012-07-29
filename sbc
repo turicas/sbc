@@ -69,7 +69,7 @@ chmod +x $HOME/.sbc/sbc
 chmod +x $HOME/.sbc/sbc-startup
 
 line_to_add='PATH=$PATH:$HOME/bin'
-[ -z "$(grep $line_to_add $HOME/.profile)" ] && echo $line_to_add >> $HOME/.profile
+[ -z "$(grep -s $line_to_add $HOME/.profile)" ] && echo $line_to_add >> $HOME/.profile
 
 rm $0
 EOF
@@ -105,7 +105,7 @@ EOF
     echo ' [OK]'
 
     echo -n "[sbc] Updating local authorized_keys (if needed)..."
-    if [ "$(grep "$(cat $SBC_KEY.pub)" $AUTH_KEYS | wc -l)" = 0 ]; then
+    if [ "$(grep -s "$(cat $SBC_KEY.pub)" $AUTH_KEYS | wc -l)" = 0 ]; then
         cat $SBC_KEY.pub >> $AUTH_KEYS
     fi
     echo ' [OK]'
@@ -121,9 +121,13 @@ shift
 
 case "$plugin" in
     install)
+        # Running on client
+        set -e
         sbc_install $@
+        set +e
         ;;
     ssh)
+        set -e
         # Running on client to start SSH connection
         data=$(get_username_and_hostname $@)
         username=${data%@*}
@@ -140,14 +144,13 @@ REMOTE_HOST=$hostname
 REMOTE_PORT=$port
 EOF
         echo ' [OK]'
-
         echo -n '[sbc] Creating back-channel and connecting...'
         ssh -tR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ '$HOME/.sbc/sbc-startup'
         rm $env_file
-
+        set +e
     ;;
     exec)
-        # Running on client
+        # Running on client (called by remote `sbc plugin ...`)
         plugin=$1
         shift
         # Update environment to the process which called 'sbc ssh'
@@ -156,7 +159,7 @@ EOF
         $SBC_PATH/plugins/$plugin $@
     ;;
     *)
-        # Running a plugin on remote
+        # Running a plugin on remote machine
         source $HOME/.sbc/config
         env_vars="REMOTE_PWD=$PWD $(cat $HOME/.sbc/config | tr '\n' ' ')"
         ssh -qtp $SBC_PORT -o StrictHostKeyChecking=no -i $HOME/.sbc/sbc_rsa \
