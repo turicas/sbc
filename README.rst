@@ -105,7 +105,7 @@ entire directory ``plugins`` to ``$HOME/.sbc/``. The following commands do
 it for you (please **read** the commands before executing)::
 
     mkdir -p $HOME/bin $HOME/.sbc
-    wget https://github.com/turicas/sbc/tarball/master -O /tmp/sbc.tar.gz
+    wget https://github.com/turicas/sbc/tarball/develop -O /tmp/sbc.tar.gz
     cd /tmp
     tar xfz sbc.tar.gz
     mv /tmp/turicas-sbc-*/sbc $HOME/bin/
