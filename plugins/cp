@@ -14,15 +14,26 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <http://www.gnu.org/licenses/>.
 
-if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+function show_help() {
     echo 'Usage: sbc cp <source_file[ source_file_2[...]]> <destination>'
     echo 'Source files are the paths (absolute or relative) in SSH server machine'
     echo 'Destination is a valid path on SSH client machine'
+}
+
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    show_help
     exit
 fi
 
 files_to_copy=${@:1:$((${#@} - 1))}
 destination=${@:${#@}}
+
+if [ -z "$destination" ] || [ -z "$files_to_copy" ]; then
+    echo 
+    show_help
+    exit
+fi
+
 files_with_host=$(
     for file in $files_to_copy; do
         [ "${file:0:1}" != "/" ] && file=$REMOTE_PWD/$file
