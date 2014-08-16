@@ -78,7 +78,7 @@ EOF
 
 source $HOME/.sbc/config
 
-SBC_CMD="ssh -qNf -p $SBC_PORT -o StrictHostKeyChecking=no \
+SBC_CMD="ssh -CqNf -p $SBC_PORT -o StrictHostKeyChecking=no \
              -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
              -i $HOME/.sbc/sbc_rsa $SBC_USER@localhost"
 $SBC_CMD
@@ -145,7 +145,7 @@ REMOTE_PORT=$port
 EOF
         echo ' [OK]'
         echo -n '[sbc] Creating back-channel and connecting...'
-        ssh -tR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ '$HOME/.sbc/sbc-startup'
+        ssh -CtR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ '$HOME/.sbc/sbc-startup'
         rm $env_file
         set +e
     ;;
@@ -166,7 +166,7 @@ EOF
         # Running a plugin on remote machine
         source $HOME/.sbc/config
         env_vars="REMOTE_PWD=$PWD $(cat $HOME/.sbc/config | tr '\n' ' ')"
-        ssh -qtp $SBC_PORT -o StrictHostKeyChecking=no -i $HOME/.sbc/sbc_rsa \
+        ssh -Cqtp $SBC_PORT -o StrictHostKeyChecking=no -i $HOME/.sbc/sbc_rsa \
             -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
             $SBC_USER@localhost \
             "$env_vars /bin/bash -lc \"sbc exec $plugin '$@'\""
