@@ -56,11 +56,23 @@ case "$sbc_command" in
         exit 1
     ;;
 
+    configure)
+        # Running on remote - should be run only by sbc itself
+        if [ ! -e "$HOME/.sbc" ]; then
+            mkdir $HOME/.sbc
+        fi
+
+        key=$(cat -)
+        echo "$key" > $SBC_KEY
+
+        chmod 600 $SBC_KEY
+    ;;
+
     setup)
         # Running on client
         set -e
         if [ -z "$1" ]; then
-            echo "Usage: $0 setup <user@remote-server> [scp options]"
+            echo "Usage: $0 setup [ssh options] <user@remote-server>"
             exit 1
         fi
 
@@ -74,9 +86,7 @@ case "$sbc_command" in
 
         # TODO: replace private_key with variable name
         echo -n "[sbc] Copying private key to remote server..."
-        cat $SBC_KEY | ssh $@ 'cat - > $HOME/private_key'
-        ssh $@ 'mkdir -p $HOME/.sbc; mv $HOME/private_key $HOME/.sbc/; \
-                chmod 700 $HOME/.sbc; chmod 600 $HOME/.sbc/private_key'
+        cat $SBC_KEY | ssh $@ 'sbc configure'
         echo ' [OK]'
 
         echo -n "[sbc] Updating local authorized_keys (if needed)..."
@@ -84,6 +94,9 @@ case "$sbc_command" in
             cat $SBC_KEY.pub >> $AUTH_KEYS
         fi
         echo ' [OK]'
+
+        echo "[sbc] Done! Try now: sbc ssh $@"
+
         set +e
     ;;
 
@@ -120,7 +133,7 @@ case "$sbc_command" in
 
         SBC_CMD="ssh -qNf -p $SBC_PORT -o StrictHostKeyChecking=no \
                      -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
-                     -i $HOME/.sbc/private_key $SBC_USER@localhost"
+                     -i $SBC_KEY $SBC_USER@localhost"
         $SBC_CMD
 
         SBC_BACKCHANNEL_PID=$(ps -Ao pid,cmd | grep "$(echo $SBC_CMD)" | awk '($2 != "grep") {print $1}')
@@ -153,11 +166,12 @@ case "$sbc_command" in
     ;;
 
     *)
-        # Running a plugin from remote machine
+        # Running on remote (try to run a plugin on local machine)
         # $sbc_command is the plugin to be executed
         env_vars="SBC_REMOTE_PWD=$PWD $(env | grep SBC_ | tr '\n' ' ')"
-        ssh -qtp $SBC_PORT -o StrictHostKeyChecking=no -i $HOME/.sbc/private_key \
-            -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
+        ssh -qtp $SBC_PORT -o StrictHostKeyChecking=no \
+            -i $SBC_KEY -o ControlMaster=auto \
+            -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
             $SBC_USER@localhost \
             "$env_vars /bin/sh -lc \"sbc exec-plugin $sbc_command '$@'\""
     ;;
