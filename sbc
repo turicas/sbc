@@ -73,9 +73,10 @@ line_to_add='PATH=$PATH:$HOME/bin'
 rm $0
 EOF
     cat > /tmp/sbc-startup << 'EOF'
-#!/bin/bash
+#!/bin/sh
 
 export $@
+export PATH=$PATH:$HOME/bin
 
 SBC_CMD="ssh -qNf -p $SBC_PORT -o StrictHostKeyChecking=no \
              -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
@@ -169,6 +170,6 @@ case "$plugin" in
         ssh -qtp $SBC_PORT -o StrictHostKeyChecking=no -i $HOME/.sbc/sbc_rsa \
             -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
             $SBC_USER@localhost \
-            "$env_vars /bin/bash -lc \"sbc exec $plugin '$@'\""
+            "$env_vars /bin/sh -lc \"sbc exec $plugin '$@'\""
     ;;
 esac
