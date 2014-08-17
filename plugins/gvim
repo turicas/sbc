@@ -23,8 +23,8 @@ fi
 filenames=$@
 files_to_edit=$(
     for filename in $filenames; do
-        [ "${filename:0:1}" != "/" ] && filename=$REMOTE_PWD/$filename
-        echo scp://$REMOTE_USER@$REMOTE_HOST:$REMOTE_PORT/$filename
+        [ "${filename:0:1}" != "/" ] && filename=$SBC_REMOTE_PWD/$filename
+        echo scp://$SBC_REMOTE_USER@$SBC_REMOTE_HOST:$SBC_REMOTE_PORT/$filename
     done
 )
 
