@@ -113,8 +113,9 @@ case "$sbc_command" in
         port=${data#*:}
 
         # GUI applications need local environment
-        env_file=$SBC_PATH/.env-$hostname-$port-$username
-        env | sed 's/^/export /; s/=/="/; s/$/"/' > $env_file
+        env_file=/tmp/sbc-$USER-env-$hostname-$port-$username
+        touch $env_file; chmod 600 $env_file
+        env | sed 's/^/export /; s/=/="/; s/$/"/' >> $env_file
 
         SBC_PORT=$(($RANDOM + 1024))
 
@@ -155,7 +156,7 @@ case "$sbc_command" in
         shift
 
         # Update environment to the process which called 'sbc ssh'
-        source $SBC_PATH/.env-$SBC_REMOTE_HOST-$SBC_REMOTE_PORT-$SBC_REMOTE_USER
+        source /tmp/sbc-$USER-env-$SBC_REMOTE_HOST-$SBC_REMOTE_PORT-$SBC_REMOTE_USER
 
         if [ ! -x "$SBC_PATH/plugins/$plugin" ]; then
             echo "ERROR: plugin '$plugin' doesn't exist or isn't executable."
