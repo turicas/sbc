@@ -16,7 +16,7 @@
 
 SBC=$0
 SBC_PATH="$HOME/.sbc"
-SBC_KEY="$HOME/.sbc/sbc_rsa"
+SBC_KEY="$HOME/.ssh/sbc_rsa"
 AUTH_KEYS="$HOME/.ssh/authorized_keys"
 SSH_LOCAL_PORT=22
 
@@ -41,72 +41,58 @@ get_username_and_hostname() {
     echo "$username@$hostname:$port"
 }
 
-sbc_install() {
-    if [ -z "$1" ]; then
-        echo "Usage: $0 $plugin <user@remote-server> [scp options]"
-        exit 1
-    fi
-
-    if [ ! -e "$SBC_KEY" ]; then
-        echo -n "[sbc] Generating SSH RSA key without password ($SBC_KEY)..."
-        ssh-keygen -t rsa -f $SBC_KEY -N '' &> /dev/null
-        echo ' [OK]'
-    else
-        echo "[sbc] Using existing key $SBC_KEY"
-    fi
-
-    cat > /tmp/sbc-install << 'EOF'
-#!/bin/bash
-
-mkdir -p $HOME/.sbc $HOME/bin
-mv $HOME/sbc_rsa $HOME/sbc $HOME/.sbc/
-rm -rf $HOME/bin/sbc
-ln -s $HOME/.sbc/sbc $HOME/bin/
-chmod 700 $HOME/.sbc
-chmod 600 $HOME/.sbc/sbc_rsa
-chmod +x $HOME/.sbc/sbc
-
-rm $0
-EOF
-
-    # TODO: use ControlMaster
-
-    echo -n "[sbc] Copying private key and sbc executables to remote server..."
-    cat $SBC_KEY | ssh $@ 'cat - > $HOME/sbc_rsa'
-    cat $0 | ssh $@ 'cat - > $HOME/sbc'
-    cat /tmp/sbc-install | ssh $@ 'cat - > $HOME/sbc-install'
-    rm /tmp/sbc-install
-    echo ' [OK]'
-    echo -n "[sbc] Executing sbc-install..."
-    ssh $@ '/bin/bash $HOME/sbc-install'
-    echo ' [OK]'
-
-    echo -n "[sbc] Updating local authorized_keys (if needed)..."
-    if [ "$(grep -s "$(cat $SBC_KEY.pub)" $AUTH_KEYS | wc -l)" = 0 ]; then
-        cat $SBC_KEY.pub >> $AUTH_KEYS
-    fi
-    echo ' [OK]'
-}
-
 if [ -z "$1" ]; then
     echo "Usage: $0 <plugin_name> [--help] [options]"
     exit 1
 fi
 
-plugin=$1
+sbc_command=$1
 shift
 
-case "$plugin" in
+case "$sbc_command" in
     install)
+        echo 'Deprecated. Please install sbc on the server by hand.'
+        echo 'After installing it on the server, run "sbc setup user@host".'
+        exit 1
+    ;;
+
+    setup)
         # Running on client
         set -e
-        sbc_install $@
+        if [ -z "$1" ]; then
+            echo "Usage: $0 setup <user@remote-server> [scp options]"
+            exit 1
+        fi
+
+        if [ ! -e "$SBC_KEY" ]; then
+            echo -n "[sbc] Generating SSH RSA key without password ($SBC_KEY)..."
+            ssh-keygen -t rsa -f $SBC_KEY -N '' &> /dev/null
+            echo ' [OK]'
+        else
+            echo "[sbc] Using existing key $SBC_KEY"
+        fi
+
+        # TODO: replace private_key with variable name
+        echo -n "[sbc] Copying private key to remote server..."
+        cat $SBC_KEY | ssh $@ 'cat - > $HOME/private_key'
+        ssh $@ 'mkdir -p $HOME/.sbc; mv $HOME/private_key $HOME/.sbc/; \
+                chmod 700 $HOME/.sbc; chmod 600 $HOME/.sbc/private_key'
+        echo ' [OK]'
+
+        echo -n "[sbc] Updating local authorized_keys (if needed)..."
+        if [ "$(grep -s "$(cat $SBC_KEY.pub)" $AUTH_KEYS | wc -l)" = 0 ]; then
+            cat $SBC_KEY.pub >> $AUTH_KEYS
+        fi
+        echo ' [OK]'
         set +e
-        ;;
+    ;;
+
     ssh)
+        # Running on client to start SSH connection
         set -e
 
-        # Running on client to start SSH connection
+        #TODO: warn user if sbc is not installed on server
+
         data=$(get_username_and_hostname $@)
         username=${data%@*}
         hostname=${data#*@}; hostname=${hostname%:*}
@@ -122,20 +108,19 @@ case "$plugin" in
         ssh -tR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ \
             "SBC_USER=$USER SBC_PORT=$SBC_PORT \
             SBC_REMOTE_USER=$username SBC_REMOTE_HOST=$hostname \
-            SBC_REMOTE_PORT=$port /bin/sh -lc '$HOME/bin/sbc shell'"
+            SBC_REMOTE_PORT=$port sbc shell"
 
         set +e
     ;;
 
     shell)
         # Running on remote host, to open a new SSH shell session
-        PATH=$PATH:$HOME/bin
 
         #TODO: verify if is already inside a sbc remote session
 
         SBC_CMD="ssh -qNf -p $SBC_PORT -o StrictHostKeyChecking=no \
                      -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
-                     -i $HOME/.sbc/sbc_rsa $SBC_USER@localhost"
+                     -i $HOME/.sbc/private_key $SBC_USER@localhost"
         $SBC_CMD
 
         SBC_BACKCHANNEL_PID=$(ps -Ao pid,cmd | grep "$(echo $SBC_CMD)" | awk '($2 != "grep") {print $1}')
@@ -147,28 +132,34 @@ case "$plugin" in
         echo -n '[sbc] Closing back-channel...'
         kill -9 $SBC_BACKCHANNEL_PID
         echo ' [OK]'
-        ;;
+    ;;
 
-    exec)
+    exec-plugin)
         # Running on client (called by remote `sbc plugin ...`)
+
         plugin=$1
         shift
 
         # Update environment to the process which called 'sbc ssh'
         source $SBC_PATH/.env-$SBC_REMOTE_HOST-$SBC_REMOTE_PORT-$SBC_REMOTE_USER
+
         if [ ! -x "$SBC_PATH/plugins/$plugin" ]; then
-            echo 'ERROR: plugin "'$plugin'" does not exist or is not executable.'
+            echo "ERROR: plugin '$plugin' doesn't exist or isn't executable."
             exit 1
         fi
+
         # Run the plugin
         $SBC_PATH/plugins/$plugin $@
     ;;
+
     *)
-        # Running a plugin on remote machine
+        # Running a plugin from remote machine
+        # $sbc_command is the plugin to be executed
         env_vars="REMOTE_PWD=$PWD $(env | grep SBC_ | tr '\n' ' ')"
-        ssh -qtp $SBC_PORT -o StrictHostKeyChecking=no -i $HOME/.sbc/sbc_rsa \
+        ssh -qtp $SBC_PORT -o StrictHostKeyChecking=no -i $HOME/.sbc/private_key \
             -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
             $SBC_USER@localhost \
-            "$env_vars /bin/sh -lc \"sbc exec $plugin '$@'\""
+            "$env_vars /bin/sh -lc \"sbc exec-plugin $sbc_command '$@'\""
     ;;
+
 esac
