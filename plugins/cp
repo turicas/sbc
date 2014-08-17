@@ -29,15 +29,15 @@ files_to_copy=${@:1:$((${#@} - 1))}
 destination=${@:${#@}}
 
 if [ -z "$destination" ] || [ -z "$files_to_copy" ]; then
-    echo 
+    echo
     show_help
     exit
 fi
 
 files_with_host=$(
     for file in $files_to_copy; do
-        [ "${file:0:1}" != "/" ] && file=$REMOTE_PWD/$file
-        echo $REMOTE_USER@$REMOTE_HOST:$file
+        [ "${file:0:1}" != "/" ] && file=$SBC_REMOTE_PWD/$file
+        echo $SBC_REMOTE_USER@$SBC_REMOTE_HOST:$file
     done)
 
-scp -P $REMOTE_PORT $files_with_host $destination
+scp -P $SBC_REMOTE_PORT $files_with_host $destination

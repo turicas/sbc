@@ -155,7 +155,7 @@ case "$sbc_command" in
     *)
         # Running a plugin from remote machine
         # $sbc_command is the plugin to be executed
-        env_vars="REMOTE_PWD=$PWD $(env | grep SBC_ | tr '\n' ' ')"
+        env_vars="SBC_REMOTE_PWD=$PWD $(env | grep SBC_ | tr '\n' ' ')"
         ssh -qtp $SBC_PORT -o StrictHostKeyChecking=no -i $HOME/.sbc/private_key \
             -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
             $SBC_USER@localhost \
