@@ -4,41 +4,44 @@ sbc - Use SSH Like a Boss!
 Introduction
 ------------
 
-``sbc`` stands for **Secure Back Channel** and is a little tool to help you using
-SSH sessions. It looks like
+``sbc`` stands for **Secure Back Channel** and is a little tool to help you
+using SSH sessions. It looks like
 `bcvi <http://sshmenu.sourceforge.net/articles/bcvi/>`_ but is more secure in
-the command execution process and flexible when creating plugins. For now it
-only works on Linux client machines (remote machines must run SSH daemon and
-have Bash).
+the command execution process (it uses SSH and not a new non-crypted
+non-authenticated protocol) and is very flexible for plugin creation (you can
+create your plugin easily, using your preferred programming language). It is
+tested on GNU/Linux and Mac OS X as client machines and any UNIX-like server,
+with any shell.
 
-Sometimes when you are in a ``local-machine`` and connects via SSH to a
-``remote-machine`` you need to copy some files between two machines, run some
-time-consuming commands and other things. ``sbc`` helps you in these tasks so
-you don't need to open other terminal windows/SSH sessions to do it or you can
-be notified when some tasks are done, for example.
+Example use case: sometimes when you are in a ``local-machine`` and connects via
+SSH to a ``remote-machine`` you need to copy some files between two machines,
+run some time-consuming commands and other things. ``sbc`` helps you in these
+tasks so you don't need to open other terminal windows/SSH sessions to do it or
+you can be notified when some tasks are done, for example.
 
 Are you lazy? Watch the `sbc screencast <http://youtu.be/Rv55V_gfGEw>`_ and
-learn how it works.
+learn how it works (note that the screencast is not up-to-date to to current
+code version).
 
 
 Usage
 -----
 
 First, you need to `install sbc <https://github.com/turicas/sbc#installation>`_
-in your machine and then install it in the remote machine - you don't need root
-access in either machines, but need to run SSH daemon in both machines. After
-installing in your machine, let's install in the remote one::
+in your local and remote machines - you don't need root access in either
+machines, but need to run SSH daemon in both machines. After installing in both
+machines, let's setup sbc SSH key in the remote one::
 
-    user@local-machine:~$ sbc install other-user@remote-machine
+    user@local-machine:~$ sbc setup other-user@remote-machine
     [sbc] Generating SSH RSA key without password (/home/user/.ssh/sbc_rsa)... [OK]
     [sbc] Copying private key and sbc executables to remote server... [OK]
-    [sbc] Executing sbc-install... [OK]
+    [sbc] Executing sbc setup... [OK]
     [sbc] Updating local authorized_keys (if needed)... [OK]
 
-After installing it in remote, let's copy a file (``/tmp/some-file.txt``) from
-the remote machine to the local machine, executing a command
-**in the remote machine** - this command is just calling ``sbc`` with the
-``cp`` plugin.
+Now your server is configured to run sbc! Let's copy a file
+(``/tmp/some-file.txt``) from the remote machine to the local machine, executing
+a command **in the remote machine** - this command is just calling ``sbc`` with
+the ``cp`` plugin.
 
 First, let's check if there is no file called ``/tmp/some-file.txt`` on local
 machine::
@@ -50,7 +53,6 @@ Ok, now we'll connect to remote server using ``sbc ssh`` and list files in
 remote home directory::
 
     user@local-machine:~$ sbc ssh other-user@remote-machine
-    [sbc] Copying sbc metadata to server... [OK]
     [sbc] Creating back-channel and connecting... [OK]
     other-user@remote-machine:~$ ls
     some-file.txt
@@ -60,7 +62,7 @@ Now, copy the file to local machine's ``/tmp`` and disconnect::
     other-user@remote-machine:~$ sbc cp some-file.txt /tmp/
     some-file.txt                                 100%  545     0.5KB/s   00:01
     other-user@remote-machine:~$ exit
-    [sbc] Cleaning metadata on server... [OK]
+    [sbc] Closing back-channel... [OK]
     Connection to remote-machine closed.
 
 ...and check if the file was copied to local machine::
@@ -76,7 +78,7 @@ machine. **All plugins are stored and run in your local machine** - they are in
 you can use your preferred language to write one! ;-).
 
 ``cp`` is only one of other cool plugins shipped by default with ``sbc``. For
-example, if you want to edit a file stored in remote machine using a editor
+example, if you want to edit a file stored in remote machine using an editor
 running in your local machine (so you can use your own configuration files,
 for example), you can use the plugins ``vim``, ``gvim`` or ``gedit``. Let's
 see an example with gvim::
@@ -104,14 +106,16 @@ Copy the executable script ``sbc`` to some directory in your ``$PATH`` and the
 entire directory ``plugins`` to ``$HOME/.sbc/``. The following commands do
 it for you (please **read** the commands before executing)::
 
-    mkdir -p $HOME/bin $HOME/.sbc
     wget https://github.com/turicas/sbc/tarball/develop -O /tmp/sbc.tar.gz
     cd /tmp
     tar xfz sbc.tar.gz
+
+    mkdir -p $HOME/bin $HOME/.sbc
     mv /tmp/turicas-sbc-*/sbc $HOME/bin/
     mv /tmp/turicas-sbc-*/plugins $HOME/.sbc/
     rm -rf /tmp/sbc.tar.gz /tmp/turicas-sbc-*
     chmod +x $HOME/bin/sbc
+
     line_to_add='PATH=$PATH:$HOME/bin'
     if [ -z "$(grep $line_to_add $HOME/.profile)" ]; then
         echo $line_to_add >> $HOME/.profile
@@ -125,9 +129,10 @@ Author
 The core idea of this software was stolen from
 `bcvi <http://sshmenu.sourceforge.net/articles/bcvi/>`_ and the rest
 (flexibility + security) was idealized and coded by
-`Álvaro Justen <http://blog.justen.eng.br/>`_ (with much help from
-`Flávio Amieiro <http://flavioamieiro.com/>`_ and
-`Kretcheu <http://www.kretcheu.com.br/>`_).
+`Álvaro Justen <http://turicas.info/>`_ (with much help from
+`Flávio Amieiro <http://flavioamieiro.com/>`_,
+`Kretcheu <http://www.kretcheu.com.br/>`_ and
+`KurtKraut <http://kurtkraut.net/>`_).
 
 
 Copying
