@@ -91,6 +91,10 @@ case "$sbc_command" in
         echo ' [OK]'
 
         echo -n "[sbc] Updating local authorized_keys (if needed)..."
+        if [ ! -e "$HOME/.ssh" ]; then
+            mkdir -p "$HOME/.ssh"
+            chmod 700 "$HOME/.ssh"
+        fi
         if [ "$(grep -s "$(cat $SBC_KEY.pub)" $AUTH_KEYS | wc -l)" = 0 ]; then
             cat $SBC_KEY.pub >> $AUTH_KEYS
         fi
