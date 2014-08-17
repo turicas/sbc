@@ -18,7 +18,6 @@ SBC=$0
 SBC_PATH="$HOME/.sbc"
 SBC_KEY="$HOME/.sbc/sbc_rsa"
 AUTH_KEYS="$HOME/.ssh/authorized_keys"
-SBC_PORT=$(($RANDOM + 1024))
 SSH_LOCAL_PORT=22
 
 get_username_and_hostname() {
@@ -68,29 +67,28 @@ chmod 600 $HOME/.sbc/sbc_rsa
 chmod +x $HOME/.sbc/sbc
 chmod +x $HOME/.sbc/sbc-startup
 
-line_to_add='PATH=$PATH:$HOME/bin'
-[ -z "$(grep -s $line_to_add $HOME/.profile)" ] && echo $line_to_add >> $HOME/.profile
-
 rm $0
 EOF
     cat > /tmp/sbc-startup << 'EOF'
-#!/bin/bash
+#!/bin/sh
 
-source $HOME/.sbc/config
+export $@
+export PATH=$PATH:$HOME/bin
 
 SBC_CMD="ssh -qNf -p $SBC_PORT -o StrictHostKeyChecking=no \
              -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
              -i $HOME/.sbc/sbc_rsa $SBC_USER@localhost"
 $SBC_CMD
-SBC_PID=$(ps -Ao pid,cmd | grep "$(echo $SBC_CMD)" | awk '($2 != "grep") {print $1}')
+
+SBC_BACKCHANNEL_PID=$(ps -Ao pid,cmd | grep "$(echo $SBC_CMD)" | awk '($2 != "grep") {print $1}')
 echo ' [OK]'
+
 
 $SHELL -l
 
-echo -n '[sbc] Cleaning metadata on remote server...'
-rm $HOME/.sbc/config $HOME/.sbc/master_localhost_${SBC_PORT}_${SBC_USER}
+echo -n '[sbc] Closing back-channel...'
+kill -9 $SBC_BACKCHANNEL_PID
 echo ' [OK]'
-kill -9 $SBC_PID
 EOF
 
     echo -n "[sbc] Copying private key and sbc executables to remote server..."
@@ -128,33 +126,34 @@ case "$plugin" in
         ;;
     ssh)
         set -e
+
         # Running on client to start SSH connection
         data=$(get_username_and_hostname $@)
         username=${data%@*}
         hostname=${data#*@}; hostname=${hostname%:*}
         port=${data#*:}
+
+        # GUI applications need local environment
         env_file=$SBC_PATH/.env-$hostname-$port-$username
         env | sed 's/^/export /; s/=/="/; s/$/"/' > $env_file
-        echo -n '[sbc] Copying sbc metadata to remote server...'
-        cat << EOF | ssh $@ "cat - > \$HOME/.sbc/config"
-SBC_PORT=$SBC_PORT
-SBC_USER=$USER
-REMOTE_USER=$username
-REMOTE_HOST=$hostname
-REMOTE_PORT=$port
-EOF
-        echo ' [OK]'
+
+        SBC_PORT=$(($RANDOM + 1024))
+
         echo -n '[sbc] Creating back-channel and connecting...'
-        ssh -tR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ '$HOME/.sbc/sbc-startup'
-        rm $env_file
+        ssh -tR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ \
+            "\$HOME/.sbc/sbc-startup SBC_USER=$USER SBC_PORT=$SBC_PORT \
+            SBC_REMOTE_USER=$username SBC_REMOTE_HOST=$hostname \
+            SBC_REMOTE_PORT=$port"
+
         set +e
     ;;
     exec)
         # Running on client (called by remote `sbc plugin ...`)
         plugin=$1
         shift
+
         # Update environment to the process which called 'sbc ssh'
-        source $SBC_PATH/.env-$REMOTE_HOST-$REMOTE_PORT-$REMOTE_USER
+        source $SBC_PATH/.env-$SBC_REMOTE_HOST-$SBC_REMOTE_PORT-$SBC_REMOTE_USER
         if [ ! -x "$SBC_PATH/plugins/$plugin" ]; then
             echo 'ERROR: plugin "'$plugin'" does not exist or is not executable.'
             exit 1
@@ -164,11 +163,10 @@ EOF
     ;;
     *)
         # Running a plugin on remote machine
-        source $HOME/.sbc/config
-        env_vars="REMOTE_PWD=$PWD $(cat $HOME/.sbc/config | tr '\n' ' ')"
+        env_vars="REMOTE_PWD=$PWD $(env | grep SBC_ | tr '\n' ' ')"
         ssh -qtp $SBC_PORT -o StrictHostKeyChecking=no -i $HOME/.sbc/sbc_rsa \
             -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
             $SBC_USER@localhost \
-            "$env_vars /bin/bash -lc \"sbc exec $plugin '$@'\""
+            "$env_vars /bin/sh -lc \"sbc exec $plugin '$@'\""
     ;;
 esac
