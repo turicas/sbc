@@ -17,6 +17,7 @@
 SBC=$0
 SBC_PATH="$HOME/.sbc"
 SBC_KEY="$HOME/.ssh/sbc_rsa"
+SBC_CONTROL_PATH=/tmp/sbc_master_%h_%p_%r
 AUTH_KEYS="$HOME/.ssh/authorized_keys"
 SSH_LOCAL_PORT=22
 
@@ -58,13 +59,12 @@ case "$sbc_command" in
 
     configure)
         # Running on remote - should be run only by sbc itself
-        if [ ! -e "$HOME/.sbc" ]; then
-            mkdir $HOME/.sbc
-        fi
+        mkdir -p $HOME/.ssh
 
         key=$(cat -)
         echo "$key" > $SBC_KEY
 
+        chmod 700 $HOME/.ssh
         chmod 600 $SBC_KEY
     ;;
 
@@ -79,6 +79,7 @@ case "$sbc_command" in
         if [ ! -e "$SBC_KEY" ]; then
             echo -n "[sbc] Generating SSH RSA key without password ($SBC_KEY)..."
             ssh-keygen -t rsa -f $SBC_KEY -N '' &> /dev/null
+            chmod 600 $SBC_KEY
             echo ' [OK]'
         else
             echo "[sbc] Using existing key $SBC_KEY"
@@ -132,7 +133,7 @@ case "$sbc_command" in
         #TODO: verify if is already inside a sbc remote session
 
         SBC_CMD="ssh -qNf -p $SBC_PORT -o StrictHostKeyChecking=no \
-                     -o ControlMaster=auto -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
+                     -o ControlMaster=auto -o ControlPath=$SBC_CONTROL_PATH \
                      -i $SBC_KEY $SBC_USER@localhost"
         $SBC_CMD
 
@@ -171,7 +172,7 @@ case "$sbc_command" in
         env_vars="SBC_REMOTE_PWD=$PWD $(env | grep SBC_ | tr '\n' ' ')"
         ssh -qtp $SBC_PORT -o StrictHostKeyChecking=no \
             -i $SBC_KEY -o ControlMaster=auto \
-            -o ControlPath=$HOME/.sbc/master_%h_%p_%r \
+            -o ControlPath=$SBC_CONTROL_PATH \
             $SBC_USER@localhost \
             "$env_vars /bin/sh -lc \"sbc exec-plugin $sbc_command '$@'\""
     ;;
