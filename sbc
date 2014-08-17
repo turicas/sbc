@@ -67,9 +67,6 @@ chmod 600 $HOME/.sbc/sbc_rsa
 chmod +x $HOME/.sbc/sbc
 chmod +x $HOME/.sbc/sbc-startup
 
-line_to_add='PATH=$PATH:$HOME/bin'
-[ -z "$(grep -s $line_to_add $HOME/.profile)" ] && echo $line_to_add >> $HOME/.profile
-
 rm $0
 EOF
     cat > /tmp/sbc-startup << 'EOF'
