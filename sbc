@@ -179,7 +179,7 @@ case "$sbc_command" in
             -i $SBC_KEY -o ControlMaster=auto \
             -o ControlPath=$SBC_CONTROL_PATH \
             $SBC_USER@localhost \
-            "$env_vars /bin/sh -lc \"sbc exec-plugin $sbc_command '$@'\""
+            "/bin/sh -lc \"$env_vars sbc exec-plugin $sbc_command '$@'\""
     ;;
 
 esac
