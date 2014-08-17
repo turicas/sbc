@@ -124,7 +124,7 @@ case "$sbc_command" in
         SBC_PORT=$(($RANDOM + 1024))
 
         echo -n '[sbc] Creating back-channel and connecting...'
-        ssh -tR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ \
+        ssh -CtR 127.0.0.1:$SBC_PORT:127.0.0.1:$SSH_LOCAL_PORT $@ \
             "SBC_USER=$USER SBC_PORT=$SBC_PORT \
             SBC_REMOTE_USER=$username SBC_REMOTE_HOST=$hostname \
             SBC_REMOTE_PORT=$port sbc shell"
