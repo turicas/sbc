@@ -20,5 +20,7 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     exit
 fi
 
+head=$1
+shift
 
-notify-send "$*"
+notify-send "$head" "$*"
