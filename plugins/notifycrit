@@ -23,4 +23,5 @@ fi
 head=$1
 shift
 
-notify-send "$head" "$*"
+notify-send -u critical "$head" "$*"
+

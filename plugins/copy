@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 
-# Copyright 2012 Álvaro Justen
+# Copyright 2015 Sebastian Wezel <datgizmo@web.de>
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
@@ -15,12 +15,14 @@
 # this program. If not, see <http://www.gnu.org/licenses/>.
 
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
-    echo 'Usage: sbc notify <message to notify>'
-    echo 'Send a notification in SSH client machine (generally appear near the clock)'
+    echo 'Usage: sbc copy <text>'
+    echo 'Copies text to the clipboard either wayland or X'
     exit
 fi
 
-head=$1
-shift
-
-notify-send "$head" "$*"
+if [[ -n $WAYLAND_DISPLAY ]]
+then
+    wl-copy $*
+else
+    xsel -i --clipboard $*
+fi
